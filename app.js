@@ -39,18 +39,21 @@ async function poll() {
       const sha = (await r.json()).object.sha;
       slowPath = false;
       if (sha === lastSha && S) return renderFresh();
+      if (sha === lastSha) { /* first load after an error: refetch */ }
       url = RAW + sha + '/' + PATH; lastSha = sha;            // immutable per commit: no CDN staleness
     } catch (e) {
       slowPath = true; url = RAW + 'data/' + PATH + '?t=' + Date.now();   // fallback: branch URL, CDN up to ~5 min old
     }
     const r2 = await fetch(url, {cache: 'no-store'});
+    if (r2.status === 404) throw new Error('chave errada ou ainda sem dados');
     if (!r2.ok) throw new Error('raw ' + r2.status);
     S = await decrypt(await r2.arrayBuffer());
-    window.__deskState = {ok: true, ts: S.ts};
+    window.__deskState = {ok: true, ts: S.publishedAt || S.ts, at: Date.now() / 1000, slow: slowPath};
+    (window.__deskArrivals = window.__deskArrivals || []).push(window.__deskState);
     render();
   } catch (e) {
     window.__deskState = {ok: false, err: String(e)};
-    $('fresh').textContent = e.message === 'formato' || e.name === 'OperationError' ? 'chave errada' : 'sem ligação · ' + e.message;
+    $('fresh').textContent = e.message === 'formato' || e.name === 'OperationError' ? 'chave errada' : e.message.startsWith('chave') ? e.message : 'sem ligação · ' + e.message;
     $('fresh').className = 'fresh stale';
   }
 }
