@@ -99,13 +99,14 @@ function ring(cv, score, min) {
 }
 function disc(cv, layers, beam) {
   const [c] = setup(cv, 92), r = rng(42), cx = 46, cy = 46;
-  for (let i = 0; i < 8; i++) {
-    const a0 = -Math.PI / 2 + i * Math.PI / 4 + .04, a1 = a0 + Math.PI / 4 - .08, L = layers[i];
+  const n = Math.max(layers?.length || 0, 9);
+  for (let i = 0; i < n; i++) {
+    const a0 = -Math.PI / 2 + i * 2 * Math.PI / n + .04, a1 = a0 + 2 * Math.PI / n - .08, L = layers[i];
     const col = L ? (L.pass ? '#2ecc71' : '#ff5a5f') : (i === beam ? '#33d6ff' : '#232a36');
     const p = []; for (let a = a0; a <= a1; a += .06) p.push([cx + Math.cos(a) * 36, cy + Math.sin(a) * 36]);
     rough(c, p, col, i === beam ? 12 : 9, r);
   }
-  if (beam != null && beam < 8) { const a = -Math.PI / 2 + (beam + .5) * Math.PI / 4; rough(c, [[cx, cy], [cx + Math.cos(a) * 30, cy + Math.sin(a) * 30]], '#33d6ff', 3, r); }
+  if (beam != null && beam < n) { const a = -Math.PI / 2 + (beam + .5) * 2 * Math.PI / n; rough(c, [[cx, cy], [cx + Math.cos(a) * 30, cy + Math.sin(a) * 30]], '#33d6ff', 3, r); }
 }
 
 // ---------- screens
@@ -120,35 +121,41 @@ function render() {
 function hbBadge(a) { const h = S.heartbeats?.[a]; if (!h) return '<span class="pill red">sem sinal</span>'; const age = S.ts - h.ts; return age > 120 ? `<span class="pill red">${Math.round(age / 60)} min</span>` : '<span class="pill green">vivo</span>'; }
 
 function renderCards() {
-  const sc = S.scanner, au = S.auditor, an = S.analyst, ex = S.executor, rk = S.risk, set = S.settings;
-  const feed = sc.feed.slice(0, 25).map(s => s.verdict === 'pass'
-    ? `<div class="row pass"><span class="n">${esc(s.name)} · liq $${kusd(s.liquidityUsd)} · → auditor</span><span class="r">pass</span></div>`
-    : `<div class="row kill"><span class="n">${esc(s.name || s.mint.slice(0, 6))}</span><span class="r">${esc(s.reason)}</span></div>`).join('') || '<div class="muted">À espera da primeira moeda graduada…</div>';
-  const last = au.recent[0];
-  const strips = au.layers.map((n, i) => { const L = last?.layers?.[i]; const run = au.running && !L;
+  const sc = S.scanner, au = S.auditor, an = S.analyst, ex = S.executor, rk = S.risk, lg = S.logger || {kills:0,byReason:[],recent:[]}, set = S.settings;
+  const feed = (sc.feed || []).slice(0, 25).map(s => s.verdict === 'pass'
+    ? `<div class="row pass"><span class="n">${esc(s.name)} · mcap $${kusd(s.marketCap)} · → Filter</span><span class="r">pass</span></div>`
+    : `<div class="row kill"><span class="n">${esc(s.name || s.mint.slice(0, 6))}</span><span class="r">${esc(s.reason)}</span></div>`).join('') || '<div class="muted">À espera de pares 30m–72h / $300k–$20M…</div>';
+  const last = (au.recent || [])[0];
+  const strips = (au.layers || []).map((n, i) => { const L = last?.layers?.[i]; const run = au.running && !(last?.layers?.[i]);
     return `<div class="strip ${L ? (L.pass ? 'ok' : 'bad') : ''} ${run && i === (last?.layers?.length || 0) ? 'run' : ''}"><b>${i + 1} ${esc(n)}</b>${L ? esc(L.value) : 'not checked'}</div>`; }).join('');
-  const auLine = au.running ? 'taking apart…' : last ? (last.passed ? '8/8 → Executor' : esc(last.reason)) : '—';
-  const a0 = an.recent[0];
-  const e0 = ex.recent[0], pr = ex.progress;
+  const nLay = (au.layers || []).length || 9;
+  const auLine = au.running ? 'filtering…' : last ? (last.passed ? `${nLay}/${nLay} → Analyst` : esc(last.reason)) : '—';
+  const a0 = (an.recent || [])[0];
+  const e0 = (ex.recent || [])[0], pr = ex.progress;
   let bar = '';
   if (pr) { const dur = pr.mode === 'PAPER' ? (set.paper_fill_s || 1.2) : set.live_buy_window_min * 60; const pct = Math.min(99, Math.round(100 * (S.ts - pr.t0) / dur)); bar = `<div class="muted">Executing... ${pct}%</div><div class="bar"><i style="width:${pct}%"></i></div>`; }
   else if (e0 && e0.status === 'bought') bar = `<div class="muted">✓ Filled</div><div class="bar"><i style="width:100%;background:#2ecc71"></i></div>`;
   const lastExit = rk.lastExit ? (rk.lastExit.reason === 'trail' ? 'Trailed out' : rk.lastExit.reason === 'stop' ? 'Stopped' : 'Exited') + ' · ' + esc(rk.lastExit.name) : '—';
+  const comp = a0?.components || a0?.answers || {};
+  const compLine = a0 ? `<div class="muted">mom ${(+comp.momentum || +comp.alive_6h*100 || 0).toFixed(0)} · buyers ${(+comp.unique_buyers || +comp.organic*100 || 0).toFixed(0)} · b/s ${(+comp.buy_sell_ratio || 0).toFixed(0)} · hold ${(+comp.holder_growth || +comp.flush*100 || 0).toFixed(0)} · l/m ${(+comp.liq_mcap || 0).toFixed(0)} · smart 0</div>` : '';
+  const killFeed = (lg.byReason || []).slice(0, 8).map(([r, n]) => `<div class="row kill"><span class="n">${esc(r)}</span><span class="r">×${n}</span></div>`).join('') || '<div class="muted">Sem kills ainda.</div>';
   $('cards').innerHTML = `
-  <div class="card"><div class="hd"><b>1 · Scanner</b>${hbBadge('scanner')}</div><div class="big">${sc.pools} pools</div>
-    <div class="muted">${sc.room} na sala de espera · ${sc.passed} → auditor</div><div class="feed">${feed}</div></div>
-  <div class="card"><div class="hd"><b>2 · Auditor</b>${hbBadge('auditor')}</div>
-    <div class="flex"><canvas id="disc" style="width:92px;flex:none"></canvas><div><div class="big">${au.audited} taken apart</div><div class="muted">${auLine}${last ? ' · ' + esc(last.mint.slice(0, 4)) + '…' : ''}</div><div class="muted">${au.rejected} rejected${au.gpaDown ? ' · <b style="color:#ff5a5f">layer 8 down</b>' : ''}</div></div></div>
+  <div class="card"><div class="hd"><b>1 · Scout</b>${hbBadge('scanner')}</div><div class="big">${sc.pools} pairs</div>
+    <div class="muted">${sc.room} waiting · ${sc.passed} → Filter · seen ${sc.seen || 0}</div><div class="feed">${feed}</div></div>
+  <div class="card"><div class="hd"><b>2 · Filter</b>${hbBadge('auditor')}</div>
+    <div class="flex"><canvas id="disc" style="width:92px;flex:none"></canvas><div><div class="big">${au.audited} checked</div><div class="muted">${auLine}${last ? ' · ' + esc(last.mint.slice(0, 4)) + '…' : ''}</div><div class="muted">${au.rejected} killed</div></div></div>
     <div class="strips">${strips}</div></div>
-  <div class="card"><div class="hd"><b>3 · Analyst${an.mode === 'rules' ? ' (rules)' : ''}</b>${hbBadge('analyst')}</div>
-    <div class="flex"><canvas id="ring" style="width:92px;flex:none"></canvas><div><div class="big">Scoring</div>
-    <div class="muted">${an.scored} avaliadas${a0 ? ' · ' + (a0.passed ? 'passou' : esc(a0.failed[0])) : ''}</div>
-    ${a0 ? `<div class="muted">alive ${(+a0.answers.alive_6h || 0).toFixed(2)} · organic ${(+a0.answers.organic || 0).toFixed(2)} · flush ${(+a0.answers.flush || 0).toFixed(2)} · chase ${(+a0.answers.chase || 0).toFixed(2)}</div>` : ''}</div></div></div>
+  <div class="card"><div class="hd"><b>3 · Analyst</b>${hbBadge('analyst')}</div>
+    <div class="flex"><canvas id="ring" style="width:92px;flex:none"></canvas><div><div class="big">Score ${a0 ? a0.score : '—'}/${set.min_score || 70}</div>
+    <div class="muted">${an.scored} scored${a0 ? ' · ' + (a0.passed ? 'pass' : esc(a0.failed[0])) : ''}</div>
+    ${compLine}</div></div></div>
   <div class="card"><div class="hd"><b>4 · Executor</b>${hbBadge('executor')}</div><div class="big">${ex.trades} trades</div>
-    <div class="muted">${e0 && e0.sizeUsd ? usd(e0.sizeUsd) + ' · ' + e0.stackPct + '% of stack' : 'sem sinais ainda'}</div>${bar}</div>
+    <div class="muted">${e0 && e0.sizeUsd ? usd(e0.sizeUsd) + ' · ' + e0.stackPct + '% of stack' : 'sem sinais ainda'} · max ${set.size_pct || 8}%</div>${bar}</div>
   <div class="card"><div class="hd"><b>5 · Risk</b>${hbBadge('risk')}</div><div class="big">${rk.open ? 'Guarding' : 'Idle'}</div>
     <div class="muted">${rk.open} abertas · último: ${lastExit}</div>
-    <div style="margin-top:6px"><span class="pill red">stop -${rk.stopPct}%</span><span class="pill green">trail ${rk.trailPct}%</span></div></div>`;
+    <div style="margin-top:6px"><span class="pill red">stop -${rk.stopPct}%</span><span class="pill green">trail after +${rk.trailOnPct || set.trail_on_pct || 12}%</span></div></div>
+  <div class="card"><div class="hd"><b>6 · Logger</b>${hbBadge('logger')}</div><div class="big">${lg.kills || 0} kills</div>
+    <div class="muted">cada corte com razão</div><div class="feed">${killFeed}</div></div>`;
   ring($('ring'), a0 ? a0.score : null, set.min_score);
   animateDisc(last, au.running);
 }
@@ -216,11 +223,12 @@ function renderReport() {
   const d = S.report;
   const L = [];
   if (d.gpaKilled) L.push(`⚠ Camada 8 em baixo: ${d.gpaKilled} moedas mortas por "no data: delegations"`);
-  L.push(`Noite ${d.night} · ${d.mode}`, `Scanner: ${d.scanned} decididas, ${d.scanPassed} passaram`);
-  if (d.killReasons.length) L.push('  cortes: ' + d.killReasons.map(([r, n]) => `${r} ×${n}`).join(', '));
-  L.push(`Auditor: ${d.audited} desmontadas, ${d.auditPassed} com 8/8`);
-  if (d.auditReasons.length) L.push('  vermelhos: ' + d.auditReasons.map(([r, n]) => `${r} ×${n}`).join(', '));
-  L.push(`Analyst: ${d.scored} avaliadas, ${d.analystPassed} passaram`, `Trades: ${d.trades} (${d.open} abertas) · PnL ${d.pnl >= 0 ? '+' : ''}${usd(d.pnl)} · ${d.wins} ganhos`);
+  L.push(`Noite ${d.night} · ${d.mode}`, `Scout: ${d.scanned} decididas, ${d.scanPassed} passaram`);
+  if (d.killReasons.length) L.push('  cortes Scout: ' + d.killReasons.map(([r, n]) => `${r} ×${n}`).join(', '));
+  L.push(`Filter: ${d.audited} checked, ${d.auditPassed} passed`);
+  if (d.auditReasons.length) L.push('  cortes Filter: ' + d.auditReasons.map(([r, n]) => `${r} ×${n}`).join(', '));
+  if (d.loggerReasons && d.loggerReasons.length) L.push('  Logger: ' + d.loggerReasons.map(([r, n]) => `${r} ×${n}`).join(', '));
+  L.push(`Analyst: ${d.scored} scored, ${d.analystPassed} passed`, `Trades: ${d.trades} (${d.open} open) · PnL ${d.pnl >= 0 ? '+' : ''}${usd(d.pnl)} · ${d.wins} wins`);
   d.positions.forEach(p => L.push(`  ${p.name}: ${p.status} ${p.exit_reason || ''} ${usd(p.pnl_usd || 0)}`));
   if (d.skips.length) L.push('Skips: ' + d.skips.map(s => `${s.name} (${s.reason})`).join(', '));
   if (d.mode === 'PAPER') L.push(`Saldo paper ${usd(d.balance)}`);
