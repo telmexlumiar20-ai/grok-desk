@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Grok Desk</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand">Grok Desk <span id="mode" class="pill">—</span></div>
+  <div id="fresh" class="fresh">a carregar…</div>
+</header>
+<main>
+  <section id="lock" class="screen hidden">
+    <h2>Abre o teu link privado</h2>
+    <p>Esta página só mostra dados com a tua chave. Abre o link que recebeste (termina em <code>#d=…</code>) ou cola-o aqui.</p>
+    <input id="keyin" placeholder="https://…#d=…" autocomplete="off">
+    <button id="keybtn">Abrir</button>
+    <p id="lockerr" class="err"></p>
+  </section>
+  <section id="desk" class="screen">
+    <div class="stackbar"><div><small>Stack</small><b id="stack">—</b></div><div><small>Livre</small><b id="free">—</b></div><div><small>Noite</small><b id="night">—</b></div></div>
+    <div id="ticket" class="warn hidden"></div>
+    <div id="cards"></div>
+  </section>
+  <section id="activity" class="screen hidden"><h2>Activity</h2><div id="actlist"></div></section>
+  <section id="coin" class="screen hidden">
+    <div id="coinpick" class="chips"></div>
+    <h2 id="coinname">—</h2>
+    <div id="coinmeta" class="meta"></div>
+    <canvas id="candles" height="260"></canvas>
+    <div class="legend"><span class="lg entry">entrada</span><span class="lg trail">Risk trailing stop</span></div>
+    <div id="coinlayers" class="strips"></div>
+    <a id="coinlink" class="fomo hidden" target="_blank" rel="noopener">Abrir no FOMO</a>
+  </section>
+  <section id="report" class="screen hidden"><h2>Relatório da noite</h2><canvas id="balance" height="180"></canvas><pre id="reporttxt"></pre></section>
+  <section id="account" class="screen hidden">
+    <h2>Account</h2>
+    <div class="card"><b>Notificações push na web</b><p class="muted" id="pushinfo">Indisponível no plano B.</p></div>
+    <div class="card"><b>Mudar uma definição</b><p class="muted">A app é só de leitura no plano B (GitHub Pages não aceita escrita). Muda no Telegram: <code>set stop_pct 5</code>, <code>stack 1240</code>, <code>mode live</code>, <code>pause</code>.</p></div>
+    <div id="settings"></div>
+    <h3>Alterações</h3><div id="changes"></div>
+    <button id="forget" class="ghost">Esquecer a chave neste aparelho</button>
+  </section>
+</main>
+<nav id="tabs">
+  <button data-t="desk" class="on">Desk</button><button data-t="activity">Activity</button><button data-t="coin">Coin</button><button data-t="report">Report</button><button data-t="account">Account</button>
+</nav>
+<script src="app.js"></script>
+</body>
+</html>
